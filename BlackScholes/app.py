@@ -1,85 +1,106 @@
 import streamlit as st
+import numpy as np
+import matplotlib.pyplot as plt
+import plotly.express as px
+import plotly.graph_objects as go
+from scipy.stats import norm
+import pandas as pd
 
 
+# utils
+def black_scholes(S, K, T, r, sigma, option_type='call'):
+    d1 = (np.log(S / K) + (r + 0.5 * sigma**2)*T) / (sigma * np.sqrt(T))
+    d2 = d1 - sigma * np.sqrt(T)
+
+    if option_type == 'call':
+        return S * norm.cdf(d1) - K * np.exp(-r * T) * norm.cdf(d2)
+    else:
+        return K * np.exp(-r * T) * norm.cdf(-d2) - S * norm.cdf(-d1)
+
+st.set_page_config(page_title='Black Scholes Model' ,layout="wide")
 st.title("Black Scholes Model")
 
 with st.sidebar:
-    current_asset_price = st.number_input(
+    S = st.number_input(
         label='Current Asset Price',
         min_value=0, value=20
     )
     
-    strike_price = st.number_input(
+    K = st.number_input(
         label='Strike Price',
         min_value=0, value=30
     )
     
-    time_to_expiry = st.number_input(
+    T = st.number_input(
         label='Time to Maturity (Years)',
         min_value=0, value=1
     )
     
-    volatility = st.number_input(
+    sigma = st.number_input(
         label='Volatility ($\sigma$)',
         min_value=0.0, value=.25
     )
 
-    interest_rate = st.number_input(
+    r = st.number_input(
         label='Risk free interest Rate $\r$',
         min_value=0.0, value=.10
     )
     
+    st.markdown("`Created by:` Raman Bansal")
+    st.sidebar.markdown("""
+    <a href="https://www.linkedin.com/in/-raman-bansal" target="_blank">
+        <img src="https://img.shields.io/badge/LinkedIn-Connect-blue?logo=linkedin&style=for-the-badge" alt="LinkedIn Badge">
+    </a>
+    """, unsafe_allow_html=True)
+
+call_option = round(black_scholes(S, K, T, r, sigma), 2)
+put_option = round(black_scholes(S, K, T, r, sigma, option_type='put'), 2)
+
+## Inputs display
+columns = st.columns(5)
+inputs = ['Current Stock Price', 'Strike Price', 'Time to Maturity (Years)', 'Risk free interest Rate $\r$', 'Volatility ($\sigma$)']
+input_vals = [S, K, T, r, sigma]
+for i, col in enumerate(columns):
+    col.metric(label=inputs[i], value=input_vals[i])
     
-    
-# ...existing code...
 
-import numpy as np
-import matplotlib.pyplot as plt
+## Results display
+st.subheader(":rocket: Results")
+col1, col2 = st.columns(2)
+with col1:
+    st.container(border=True).metric(label='Call option', value=call_option)
 
-from scipy.stats import norm
+with col2:
+    st.container(border=True).metric(label='Put option', value=put_option)
 
-def black_scholes_call(S, K, T, r, sigma):
-    d1 = (np.log(S / K) + (r + 0.5 * sigma ** 2) * T) / (sigma * np.sqrt(T))
-    d2 = d1 - sigma * np.sqrt(T)
-    return S * norm.cdf(d1) - K * np.exp(-r * T) * norm.cdf(d2)
-
-# --- Heatmap ---
 st.subheader("Option Price Heatmap")
-S_range = np.linspace(current_asset_price * 0.5, current_asset_price * 1.5, 50)
-V_range = np.linspace(0.05, 0.5, 50)
-S_grid, V_grid = np.meshgrid(S_range, V_range)
-prices = black_scholes_call(S_grid, strike_price, time_to_expiry, interest_rate, V_grid)
+col1, col2 = st.columns(2)
 
-fig1, ax1 = plt.subplots()
-c = ax1.pcolormesh(S_range, V_range, prices, shading='auto', cmap='viridis')
-fig1.colorbar(c, ax=ax1, label='Call Price')
-ax1.set_xlabel('Asset Price')
-ax1.set_ylabel('Volatility')
-st.pyplot(fig1)
+# Create heatmap data
+spot_range = np.linspace(S - 30, S + 30, 50)
+vol_range = np.linspace(0.1, 1.0, 50)
 
-# --- Special Plot ---
-st.subheader("Special Plot: Option Price vs Asset Price")
+call_prices = np.array([[black_scholes(s, K, T, r, v, 'call') for v in vol_range] for s in spot_range])
+put_prices = np.array([[black_scholes(s, K, T, r, v, 'put') for v in vol_range] for s in spot_range])
+with col1:
+    fig_call, ax1 = plt.subplots()
+    c1 = ax1.imshow(call_prices, cmap='viridis', aspect='auto', 
+                    extent=[vol_range[0], vol_range[-1], spot_range[0], spot_range[-1]],
+                    origin='lower')
+    fig_call.colorbar(c1, ax=ax1, label="Call Price")
+    ax1.set_title("Call Option Heatmap")
+    ax1.set_xlabel("Volatility (σ)")
+    ax1.set_ylabel("Spot Price (S)")
+    ax1.grid(linewidth=2, linestyle='-', alpha=.5, color='black')
+    st.pyplot(fig_call)
 
-fig2, ax2 = plt.subplots()
-
-# Main line (blue)
-S_plot = np.linspace(current_asset_price * 0.5, current_asset_price * 1.5, 100)
-main_price = black_scholes_call(S_plot, strike_price, time_to_expiry, interest_rate, volatility)
-ax2.plot(S_plot, main_price, color='blue', label='Current Volatility')
-
-# Faded lines for other volatilities
-fade_vols = [volatility * 0.5, volatility * 0.75, volatility * 1.25, volatility * 1.5]
-for v in fade_vols:
-    alpha = max(0.2, 1 - abs(v - volatility) / volatility)  # More faded if further from main
-    faded_price = black_scholes_call(S_plot, strike_price, time_to_expiry, interest_rate, v)
-    ax2.plot(S_plot, faded_price, color='blue', alpha=alpha, linestyle='--')
-
-# Horizontal line for strike price
-ax2.axhline(strike_price, color='red', linestyle=':', label='Strike Price')
-
-ax2.set_xlabel('Asset Price')
-ax2.set_ylabel('Call Option Price')
-ax2.legend()
-st.pyplot(fig2)
-# ...existing code...
-    
+with col2:
+    fig_put, ax2 = plt.subplots()
+    c2 = ax2.imshow(put_prices, cmap='plasma', aspect='auto', 
+                    extent=[vol_range[0], vol_range[-1], spot_range[0], spot_range[-1]],
+                    origin='lower')
+    fig_put.colorbar(c2, ax=ax2, label="Put Price")
+    ax2.set_title("Put Option Heatmap")
+    ax2.set_xlabel("Volatility (σ)")
+    ax2.set_ylabel("Spot Price (S)")
+    st.pyplot(fig_put)

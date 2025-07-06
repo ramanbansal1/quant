@@ -24,6 +24,15 @@ K = st.sidebar.slider("Strike Price (K)", 50, 150, 100)
 T = st.sidebar.slider("Time to Maturity (Years)", 1, 3, 1) * 0.5
 sigma = st.sidebar.slider("Volatility (σ)", 0.1, 1.0, 0.25)
 r = st.sidebar.slider("Risk-Free Rate (r)", 0.01, 0.2, 0.05)
+st.sidebar.markdown("`Created by:` Raman Bansal")
+
+st.sidebar.markdown(f"Raman", unsafe_allow_html=True)
+st.sidebar.markdown("""
+<a href="https://www.linkedin.com/in/-raman-bansal" target="_blank">
+    <img src="https://img.shields.io/badge/LinkedIn-Connect-blue?logo=linkedin&style=for-the-badge" alt="LinkedIn Badge">
+</a>
+""", unsafe_allow_html=True)
+
 
 st.header("🔥 Options Price Heatmap")
 
